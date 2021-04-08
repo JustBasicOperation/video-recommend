@@ -7,6 +7,7 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
 import javax.annotation.Resource;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -327,6 +328,62 @@ public class JedisUtil {
             res = jedis.hget(key, filed);
         } catch (Exception e) {
             log.error("hmset erro e:", e);
+        } finally {
+            jedis.close();
+        }
+        return res;
+    }
+
+    public String lpush (String key,String... values) {
+        Jedis jedis = getJedis();
+        Long lpush = null;
+        try {
+            lpush = jedis.lpush(key, values);
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error("lpush errr e:",e);
+        } finally {
+            jedis.close();
+        }
+        return lpush.toString();
+    }
+
+    public String lindex (String key,Long index) {
+        Jedis jedis = getJedis();
+        String res = null;
+        try {
+            res = jedis.lindex(key,index);
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error("lindex error e:",e);
+        } finally {
+            jedis.close();
+        }
+        return res;
+    }
+
+    public List<String> lrange (String key, Long start, Long end) {
+        Jedis jedis = getJedis();
+        List<String> res = null;
+        try {
+            res = jedis.lrange(key, start, end);
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error("lrange error e:",e);
+        } finally {
+            jedis.close();
+        }
+        return res;
+    }
+
+    public Long lrem (String key,Long count,String value) {
+        Jedis jedis = getJedis();
+        Long res = null;
+        try {
+            res = jedis.lrem(key, count, value);
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error("lindex error e:",e);
         } finally {
             jedis.close();
         }

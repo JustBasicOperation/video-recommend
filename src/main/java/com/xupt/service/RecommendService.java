@@ -1,25 +1,52 @@
 package com.xupt.service;
 
+import com.xupt.entity.Article;
+import com.xupt.entity.PreferenceEntity;
+import com.xupt.entity.User;
+import com.xupt.mapper.ArticleMapper;
+import com.xupt.mapper.PreferenceMapper;
+import com.xupt.mapper.UserMapper;
 import com.xupt.offline.HDFSDataModel;
 import com.xupt.offline.ItemSimilarityToRedis;
 import com.xupt.offline.UserItemSimilarityToRedis;
+import com.xupt.util.JedisUtil;
+import com.xupt.util.SnowFlake;
+import com.xupt.vo.ClickReportVO;
+import com.xupt.vo.PreferenceVO;
 import org.apache.mahout.cf.taste.impl.recommender.GenericItemBasedRecommender;
 import org.apache.mahout.cf.taste.impl.similarity.LogLikelihoodSimilarity;
 import org.apache.mahout.cf.taste.impl.similarity.precompute.MultithreadedBatchItemSimilarities;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.util.Date;
+import java.util.List;
 
 @Service
 public class RecommendService {
 
     @Resource
-    public ItemSimilarityToRedis itemSimilarityToRedis;
+    ItemSimilarityToRedis itemSimilarityToRedis;
 
     @Resource
-    public UserItemSimilarityToRedis userItemSimilarityToRedis;
+    UserItemSimilarityToRedis userItemSimilarityToRedis;
+
+    @Resource
+    ArticleMapper articleMapper;
+
+    @Resource
+    PreferenceMapper preferenceMapper;
+
+    @Resource
+    UserMapper userMapper;
+
+    @Resource
+    KafkaTemplate<String, ClickReportVO> kafkaTemplate;
+
+    @Resource
+    JedisUtil jedisUtil;
 
     public void recommend() throws IOException {
         String filePath = "D:\\HDFSTest\\item.csv";
@@ -39,5 +66,73 @@ public class RecommendService {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+    }
+
+    public List<Article> getRecommendList(String userID) {
+        //获取前十个推荐视频
+        List<String> lrange = jedisUtil.lrange(userID, 0L, 10L);
+        return articleMapper.selectBatchIds(lrange);
+    }
+
+    public void reportHistory(ClickReportVO vo) {
+        //1.点击行为上报kafka，kafka消费数据动态更新推荐列表
+        kafkaTemplate.send("xupt-video-recommend",vo);
+    }
+
+    public void reportPreference(PreferenceVO vo) {
+        //1.用户偏好数据入库
+        PreferenceEntity entity = new PreferenceEntity();
+        entity.userID = vo.userID;
+        entity.itemID = vo.itemID;
+        int score = 0;
+        if (vo.status == 2) {
+            score = 5;
+        } else {
+            score = vo.status == 0 ? 8 : 0;
+        }
+        entity.score = score;
+        entity.created = new Date();
+        preferenceMapper.insert(entity);
+        //2.用户偏好数据追加到csv文件
+        FileOutputStream output = null;
+        OutputStreamWriter writer = null;
+        try {
+            String filePath = "D:\\HDFSTest\\item.csv";
+            File file = new File(filePath);
+            if (!file.exists()) {
+                file.createNewFile();
+                output = new FileOutputStream(file);
+            } else {
+                output = new FileOutputStream(file,true);
+            }
+            writer = new OutputStreamWriter(output);
+            String str = vo.userID + "," + vo.itemID + "," + score + "\r\n";
+            writer.write(str);
+            recommend();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (writer != null) {
+                    writer.close();
+                }
+                if (output != null) {
+                    output.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public String registerUser() {
+        long id = SnowFlake.nextId();
+        String userId = "u" + id;
+        User user = new User();
+        user.userName = "admin";
+        user.userPassword = "123456";
+        user.userID = userId;
+        userMapper.insert(user);
+        return userId;
     }
 }

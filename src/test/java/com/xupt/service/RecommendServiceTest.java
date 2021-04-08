@@ -1,9 +1,12 @@
 package com.xupt.service;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.xupt.entity.Article;
 import com.xupt.mapper.ArticleMapper;
 import com.xupt.util.HDFSUtils;
 import com.xupt.util.HttpUtil;
+import com.xupt.util.VideoSimilarity;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,5 +53,16 @@ public class RecommendServiceTest {
     public void test04(){
         List<Article> articles = articleMapper.selectList(null);
         System.out.println(articles);
+    }
+
+    @Test
+    public void test05(){
+        VideoSimilarity videoSimilarity = new VideoSimilarity();
+        videoSimilarity.setVideoId(1);
+        videoSimilarity.setSimilarity(2.0);
+        String string = JSON.toJSONString("string");
+        System.out.println(string);
+        String str = JSONObject.toJSONString("str");
+        System.out.println(str);
     }
 }

@@ -36,7 +36,7 @@ public class UserItemSimilarityToRedis {
       while(userIds.hasNext()) {
         long userID = userIds.nextLong();
         FastIDSet idSet = dataModel.getItemIDsFromUser(userID);
-        String key = "UI:" + userID;
+        String key = "UI:" + userID;//这个数据暂时用不上
         String videos = JSON.toJSONString(idSet.toArray());
         jedisUtil.set(key.getBytes(), videos.getBytes());
         System.out.println("Stored User:" + key);

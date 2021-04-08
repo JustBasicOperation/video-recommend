@@ -1,5 +1,8 @@
 package com.xupt.util;
 
+import lombok.Data;
+
+@Data
 public class VideoSimilarity implements Comparable<VideoSimilarity> {
     private long videoId; //videoID
     private Double similarity; //similarity
@@ -10,20 +13,6 @@ public class VideoSimilarity implements Comparable<VideoSimilarity> {
     }
     public VideoSimilarity(long videoId, Double similarity) {
         this.videoId = videoId;
-        this.similarity = similarity;
-    }
-    public long getId() {
-        return videoId;
-    }
-    public void setId(long videoId) {
-        this.videoId = videoId;
-    }
-
-    public Double getS(){
-        return similarity;
-    }
-
-    public void setS(Double similarity) {
         this.similarity = similarity;
     }
 
