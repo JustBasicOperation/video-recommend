@@ -10,7 +10,8 @@ import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import java.util.List;
 
-@RestController("/video")
+@RestController()
+@RequestMapping("/video")
 public class VideoController {
 
     @Resource
@@ -29,7 +30,7 @@ public class VideoController {
     }
 
     /**
-     * 用户浏览记录上报(由点击行为触发)
+     * 用户浏览记录上报(由点击行为触发,上报kafka )
      * @return return
      */
     @PostMapping("/history")
@@ -48,6 +49,10 @@ public class VideoController {
         return ResponseDTO.of().success("report success!");
     }
 
+    /**
+     * 注册用户
+     * @return userId
+     */
     @PostMapping("/user")
     public ResponseDTO<String> registerUser(){
         String userId = recommendService.registerUser();

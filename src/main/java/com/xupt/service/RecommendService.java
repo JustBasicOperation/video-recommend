@@ -1,5 +1,7 @@
 package com.xupt.service;
 
+import com.alibaba.fastjson.JSONObject;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.xupt.entity.Article;
 import com.xupt.entity.PreferenceEntity;
 import com.xupt.entity.User;
@@ -22,7 +24,10 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import java.io.*;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class RecommendService {
@@ -43,7 +48,7 @@ public class RecommendService {
     UserMapper userMapper;
 
     @Resource
-    KafkaTemplate<String, ClickReportVO> kafkaTemplate;
+    KafkaTemplate kafkaTemplate;
 
     @Resource
     JedisUtil jedisUtil;
@@ -70,20 +75,22 @@ public class RecommendService {
 
     public List<Article> getRecommendList(String userID) {
         //获取前十个推荐视频
-        List<String> lrange = jedisUtil.lrange(userID, 0L, 10L);
-        return articleMapper.selectBatchIds(lrange);
+        Set<String> set = jedisUtil.zRevRange(userID, 0L, 10L);
+        LinkedList<String> list = new LinkedList<>(set);
+        List<Long> ids = list.stream().map(Long::parseLong).collect(Collectors.toList());
+        return articleMapper.selectBatchIds(ids);
     }
 
     public void reportHistory(ClickReportVO vo) {
         //1.点击行为上报kafka，kafka消费数据动态更新推荐列表
-        kafkaTemplate.send("xupt-video-recommend",vo);
+        kafkaTemplate.send("xupt-video-recommend", JSONObject.toJSONString(vo));
     }
 
     public void reportPreference(PreferenceVO vo) {
         //1.用户偏好数据入库
         PreferenceEntity entity = new PreferenceEntity();
-        entity.userID = vo.userID;
-        entity.itemID = vo.itemID;
+        entity.userId = vo.userId;
+        entity.itemId = vo.itemId;
         int score = 0;
         if (vo.status == 2) {
             score = 5;
@@ -92,7 +99,13 @@ public class RecommendService {
         }
         entity.score = score;
         entity.created = new Date();
-        preferenceMapper.insert(entity);
+        Integer count = preferenceMapper.selectCount(
+                new QueryWrapper<PreferenceEntity>().lambda().select().eq(PreferenceEntity::getUserId, vo.userId));
+        if (count < 1) {
+            preferenceMapper.insert(entity);
+        } else {
+            preferenceMapper.updateById(entity);
+        }
         //2.用户偏好数据追加到csv文件
         FileOutputStream output = null;
         OutputStreamWriter writer = null;
@@ -106,7 +119,7 @@ public class RecommendService {
                 output = new FileOutputStream(file,true);
             }
             writer = new OutputStreamWriter(output);
-            String str = vo.userID + "," + vo.itemID + "," + score + "\r\n";
+            String str = vo.userId.substring(1) + "," + vo.itemId + "," + score + "\r\n";
             writer.write(str);
             recommend();
         } catch (IOException e) {
@@ -131,7 +144,7 @@ public class RecommendService {
         User user = new User();
         user.userName = "admin";
         user.userPassword = "123456";
-        user.userID = userId;
+        user.userId = userId;
         userMapper.insert(user);
         return userId;
     }

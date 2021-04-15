@@ -6,6 +6,6 @@ import java.io.Serializable;
 
 @Data
 public class ClickReportVO implements Serializable {
-    public String userID;
-    public String itemID;
+    public String userId;
+    public String itemId;
 }

@@ -389,4 +389,33 @@ public class JedisUtil {
         }
         return res;
     }
+
+    public Long zadd (String key,Map<String,Double> map) {
+        Jedis jedis = getJedis();
+        Long res = null;
+        try {
+            res = jedis.zadd(key,map);
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error("lindex error e:",e);
+        } finally {
+            jedis.close();
+        }
+        return res;
+    }
+
+    public Set<String> zRevRange (String key, Long start, Long stop) {
+        Jedis jedis = getJedis();
+        Set<String> set = null;
+        try {
+            set = jedis.zrevrange(key, start, stop);
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error("lindex error e:",e);
+        } finally {
+            jedis.close();
+        }
+        return set;
+    }
+
 }
