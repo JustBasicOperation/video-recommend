@@ -5,6 +5,7 @@ import com.xupt.dto.ResponseDTO;
 import com.xupt.entity.Article;
 import com.xupt.service.RecommendService;
 import com.xupt.vo.PreferenceVO;
+import com.xupt.vo.SourceVO;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -58,5 +59,17 @@ public class VideoController {
         String userId = recommendService.registerUser();
         ResponseDTO<String> dto = ResponseDTO.of();
         return dto.success(userId);
+    }
+
+    /**
+     * 推送内容入库
+     * @param vo 入参
+     * @return return
+     */
+    @PostMapping("/source")
+    public ResponseDTO<String> reportSource(@RequestBody SourceVO vo){
+        String id = recommendService.reportSource(vo);
+        ResponseDTO<String> dto = ResponseDTO.of();
+        return dto.success(id);
     }
 }

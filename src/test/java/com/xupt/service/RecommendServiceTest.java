@@ -16,6 +16,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.List;
+import java.util.TimeZone;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -64,5 +65,11 @@ public class RecommendServiceTest {
         System.out.println(string);
         String str = JSONObject.toJSONString("str");
         System.out.println(str);
+    }
+
+    @Test
+    public void test06(){
+        TimeZone aDefault = TimeZone.getDefault();
+        System.out.println(aDefault);
     }
 }

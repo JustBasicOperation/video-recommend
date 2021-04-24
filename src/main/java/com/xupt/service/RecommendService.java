@@ -2,6 +2,7 @@ package com.xupt.service;
 
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.xupt.constant.Constant;
 import com.xupt.entity.Article;
 import com.xupt.entity.PreferenceEntity;
 import com.xupt.entity.User;
@@ -15,6 +16,7 @@ import com.xupt.util.JedisUtil;
 import com.xupt.util.SnowFlake;
 import com.xupt.vo.ClickReportVO;
 import com.xupt.vo.PreferenceVO;
+import com.xupt.vo.SourceVO;
 import org.apache.mahout.cf.taste.impl.recommender.GenericItemBasedRecommender;
 import org.apache.mahout.cf.taste.impl.similarity.LogLikelihoodSimilarity;
 import org.apache.mahout.cf.taste.impl.similarity.precompute.MultithreadedBatchItemSimilarities;
@@ -23,10 +25,9 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.io.*;
-import java.util.Date;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -54,8 +55,8 @@ public class RecommendService {
     JedisUtil jedisUtil;
 
     public void recommend() throws IOException {
-        String filePath = "D:\\HDFSTest\\item.csv";
-        File file = new File(filePath);
+//        String filePath = "D:\\HDFSTest\\item.csv";
+        File file = new File(Constant.FILE_PATH);
         HDFSDataModel dataModel = new HDFSDataModel(file);
         userItemSimilarityToRedis.redisStorage(dataModel);
 
@@ -74,11 +75,33 @@ public class RecommendService {
     }
 
     public List<Article> getRecommendList(String userID) {
-        //获取前十个推荐视频
-        Set<String> set = jedisUtil.zRevRange(userID, 0L, 10L);
-        LinkedList<String> list = new LinkedList<>(set);
-        List<Long> ids = list.stream().map(Long::parseLong).collect(Collectors.toList());
-        return articleMapper.selectBatchIds(ids);
+        //如果没有推荐列表，默认取前十条数据
+        if (!jedisUtil.exists(userID)) {
+            List<Article> articles =
+                    articleMapper.selectList(new QueryWrapper<Article>());
+            return urlDecoder(articles);
+        } else {
+            //从redis中获取前十条数据
+            Set<String> set = jedisUtil.zRevRange(userID, 0L, 10L);
+            LinkedList<String> list = new LinkedList<>(set);
+            List<Long> ids = list.stream().map(Long::parseLong).collect(Collectors.toList());
+            List<Article> articles = articleMapper.selectBatchIds(ids);
+            return urlDecoder(articles);
+        }
+    }
+
+    public List<Article> urlDecoder(List<Article> articles){
+        return articles.stream().map(article -> {
+            Article art = new Article();
+            try {
+                art.setUrl(URLDecoder.decode(article.getUrl(),"UTF-8"));
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
+            art.setId(article.getId());
+            art.setCreated(article.getCreated());
+            return art;
+        }).collect(Collectors.toList());
     }
 
     public void reportHistory(ClickReportVO vo) {
@@ -110,8 +133,8 @@ public class RecommendService {
         FileOutputStream output = null;
         OutputStreamWriter writer = null;
         try {
-            String filePath = "D:\\HDFSTest\\item.csv";
-            File file = new File(filePath);
+//            String filePath = "D:\\HDFSTest\\item.csv";
+            File file = new File(Constant.FILE_PATH);
             if (!file.exists()) {
                 file.createNewFile();
                 output = new FileOutputStream(file);
@@ -147,5 +170,20 @@ public class RecommendService {
         user.userId = userId;
         userMapper.insert(user);
         return userId;
+    }
+
+    public String reportSource(SourceVO vo) {
+        Article article = new Article();
+        long id = SnowFlake.nextId();
+        try {
+            article.setId(String.valueOf(id));
+            article.setUrl(URLEncoder.encode(vo.getUrl(),"UTF-8"));
+            article.setTitle(vo.getTitle());
+            article.setCreated(new Date());
+            articleMapper.insert(article);
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        return String.valueOf(id);
     }
 }
