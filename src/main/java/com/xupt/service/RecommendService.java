@@ -99,6 +99,7 @@ public class RecommendService {
                 e.printStackTrace();
             }
             art.setId(article.getId());
+            art.setTitle(article.getTitle());
             art.setCreated(article.getCreated());
             return art;
         }).collect(Collectors.toList());

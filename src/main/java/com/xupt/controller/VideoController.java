@@ -24,10 +24,9 @@ public class VideoController {
      * @return return
      */
     @GetMapping("/list")
-    public ResponseDTO<List<Article>> getRecommendList(@RequestParam(value = "userID") String userID){
+    public List<Article> getRecommendList(@RequestParam(value = "userID") String userID){
         List<Article> recommendList = recommendService.getRecommendList(userID);
-        ResponseDTO<List<Article>> dto = ResponseDTO.of();
-        return dto.success(recommendList);
+        return recommendList;
     }
 
     /**
@@ -35,9 +34,9 @@ public class VideoController {
      * @return return
      */
     @PostMapping("/history")
-    public ResponseDTO reportHistory(@RequestBody ClickReportVO vo){
+    public Boolean reportHistory(@RequestBody ClickReportVO vo){
         recommendService.reportHistory(vo);
-        return ResponseDTO.of().success("report success!");
+        return true;
     }
 
     /**
@@ -45,9 +44,9 @@ public class VideoController {
      * @return return
      */
     @PostMapping("/prefer")
-    public ResponseDTO reportPreference(@RequestBody PreferenceVO vo){
+    public Boolean reportPreference(@RequestBody PreferenceVO vo){
         recommendService.reportPreference(vo);
-        return ResponseDTO.of().success("report success!");
+        return true;
     }
 
     /**
@@ -55,10 +54,10 @@ public class VideoController {
      * @return userId
      */
     @PostMapping("/user")
-    public ResponseDTO<String> registerUser(){
+    public String registerUser(){
         String userId = recommendService.registerUser();
         ResponseDTO<String> dto = ResponseDTO.of();
-        return dto.success(userId);
+        return userId;
     }
 
     /**
