@@ -124,7 +124,8 @@ public class RecommendService {
         entity.score = score;
         entity.created = new Date();
         Integer count = preferenceMapper.selectCount(
-                new QueryWrapper<PreferenceEntity>().lambda().select().eq(PreferenceEntity::getUserId, vo.userId));
+                new QueryWrapper<PreferenceEntity>().lambda().select()
+                        .eq(PreferenceEntity::getUserId, vo.userId).eq(PreferenceEntity::getItemId,vo.itemId));
         if (count < 1) {
             preferenceMapper.insert(entity);
         } else {

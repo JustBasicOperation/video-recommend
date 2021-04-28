@@ -9,7 +9,8 @@ import java.util.Date;
 @Data
 @TableName("video_preference")
 public class PreferenceEntity {
-    @TableId(value = "user_id")
+    @TableId(value = "id")
+    public int id;
     public String userId;
     public String itemId;
     public Integer score;//用户偏好程度，十分制
