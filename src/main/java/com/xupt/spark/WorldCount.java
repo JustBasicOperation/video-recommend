@@ -16,6 +16,7 @@ public class WorldCount {
                 parallelize.mapToPair(x -> new Tuple2<>(x, 1)).reduce((x,y) -> getReduce(x,y));
         System.out.printf("======================================================");
         System.out.println("数组sum:" + map._1);
+        sparkContext.stop();
     }
     public static Tuple2 getReduce(Tuple2<Integer, Integer> x, Tuple2<Integer, Integer> y) {
         Integer a = x._1();

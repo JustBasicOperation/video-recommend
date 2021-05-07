@@ -34,8 +34,8 @@ public class VideoController {
      * @return return
      */
     @PostMapping("/history")
-    public Boolean reportHistory(@RequestBody ClickReportVO vo){
-        recommendService.reportHistory(vo);
+    public Boolean reportHistory(@RequestBody List<ClickReportVO> list){
+        recommendService.reportHistory(list);
         return true;
     }
 

@@ -17,8 +17,9 @@ import com.xupt.util.SnowFlake;
 import com.xupt.vo.ClickReportVO;
 import com.xupt.vo.PreferenceVO;
 import com.xupt.vo.SourceVO;
+import org.apache.mahout.cf.taste.common.TasteException;
 import org.apache.mahout.cf.taste.impl.recommender.GenericItemBasedRecommender;
-import org.apache.mahout.cf.taste.impl.similarity.LogLikelihoodSimilarity;
+import org.apache.mahout.cf.taste.impl.similarity.PearsonCorrelationSimilarity;
 import org.apache.mahout.cf.taste.impl.similarity.precompute.MultithreadedBatchItemSimilarities;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -60,8 +61,13 @@ public class RecommendService {
         HDFSDataModel dataModel = new HDFSDataModel(file);
         userItemSimilarityToRedis.redisStorage(dataModel);
 
-        GenericItemBasedRecommender recommender = new GenericItemBasedRecommender(dataModel,
-                new LogLikelihoodSimilarity(dataModel));
+        GenericItemBasedRecommender recommender = null;
+        try {
+            recommender = new GenericItemBasedRecommender(dataModel,
+                    new PearsonCorrelationSimilarity(dataModel));
+        } catch (TasteException e) {
+            e.printStackTrace();
+        }
         MultithreadedBatchItemSimilarities threadDeal =
                 new MultithreadedBatchItemSimilarities(recommender, 5);
         threadDeal.computeItemSimilarities(1, 1,
@@ -105,9 +111,9 @@ public class RecommendService {
         }).collect(Collectors.toList());
     }
 
-    public void reportHistory(ClickReportVO vo) {
+    public void reportHistory(List<ClickReportVO> list) {
         //1.点击行为上报kafka，kafka消费数据动态更新推荐列表
-        kafkaTemplate.send("xupt-video-recommend", JSONObject.toJSONString(vo));
+        kafkaTemplate.send("xupt-video-recommend", JSONObject.toJSONString(list));
     }
 
     public void reportPreference(PreferenceVO vo) {
