@@ -10,6 +10,7 @@ import java.util.Date;
 public class Article {
     public String id;
     public String url;
+    public int type;
     public String title;
     public Date created;
 }

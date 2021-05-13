@@ -2,21 +2,18 @@ package com.xupt.service;
 
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.xupt.constant.Constant;
 import com.xupt.entity.Article;
 import com.xupt.entity.PreferenceEntity;
-import com.xupt.entity.User;
-import com.xupt.mapper.ArticleMapper;
-import com.xupt.mapper.PreferenceMapper;
+import com.xupt.entity.Video;
 import com.xupt.mapper.UserMapper;
+import com.xupt.mapper.VideoMapper;
 import com.xupt.offline.HDFSDataModel;
 import com.xupt.offline.ItemSimilarityToRedis;
 import com.xupt.offline.UserItemSimilarityToRedis;
+import com.xupt.service.impl.PreferenceServiceImpl;
 import com.xupt.util.JedisUtil;
-import com.xupt.util.SnowFlake;
 import com.xupt.vo.ClickReportVO;
 import com.xupt.vo.PreferenceVO;
-import com.xupt.vo.SourceVO;
 import org.apache.mahout.cf.taste.common.TasteException;
 import org.apache.mahout.cf.taste.impl.recommender.GenericItemBasedRecommender;
 import org.apache.mahout.cf.taste.impl.similarity.PearsonCorrelationSimilarity;
@@ -27,7 +24,6 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import java.io.*;
 import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -41,10 +37,10 @@ public class RecommendService {
     UserItemSimilarityToRedis userItemSimilarityToRedis;
 
     @Resource
-    ArticleMapper articleMapper;
+    VideoMapper videoMapper;
 
     @Resource
-    PreferenceMapper preferenceMapper;
+    PreferenceServiceImpl preferenceService;
 
     @Resource
     UserMapper userMapper;
@@ -55,44 +51,41 @@ public class RecommendService {
     @Resource
     JedisUtil jedisUtil;
 
-    public void recommend() throws IOException {
-//        String filePath = "D:\\HDFSTest\\item.csv";
-        File file = new File(Constant.FILE_PATH);
-        HDFSDataModel dataModel = new HDFSDataModel(file);
-        userItemSimilarityToRedis.redisStorage(dataModel);
-
-        GenericItemBasedRecommender recommender = null;
+    public void recommend() {
+        String filePath = "D:\\HDFSTest\\item.csv";
+        File file = new File(filePath);
+        HDFSDataModel dataModel = null;
         try {
-            recommender = new GenericItemBasedRecommender(dataModel,
-                    new PearsonCorrelationSimilarity(dataModel));
-        } catch (TasteException e) {
-            e.printStackTrace();
-        }
-        MultithreadedBatchItemSimilarities threadDeal =
-                new MultithreadedBatchItemSimilarities(recommender, 5);
-        threadDeal.computeItemSimilarities(1, 1,
-                itemSimilarityToRedis);
+            dataModel = new HDFSDataModel(file);
+            userItemSimilarityToRedis.redisStorage(dataModel);
 
-        try {
+            GenericItemBasedRecommender recommender = null;
+            try {
+                recommender = new GenericItemBasedRecommender(dataModel,
+                        new PearsonCorrelationSimilarity(dataModel));
+            } catch (TasteException e) {
+                e.printStackTrace();
+            }
+            MultithreadedBatchItemSimilarities threadDeal =
+                    new MultithreadedBatchItemSimilarities(recommender, 5);
+            threadDeal.computeItemSimilarities(1, 1,
+                    itemSimilarityToRedis);
             userItemSimilarityToRedis.waitUtilDone();
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public List<Article> getRecommendList(String userID) {
+    public List<Video> getRecommendList(String userID) {
         //如果没有推荐列表，默认取前十条数据
         if (!jedisUtil.exists(userID)) {
-            List<Article> articles =
-                    articleMapper.selectList(new QueryWrapper<Article>());
-            return urlDecoder(articles);
+            return videoMapper.selectList(new QueryWrapper<Video>().lambda().orderByDesc(Video::getCreated).last("limit 0,10"));
         } else {
             //从redis中获取前十条数据
             Set<String> set = jedisUtil.zRevRange(userID, 0L, 10L);
             LinkedList<String> list = new LinkedList<>(set);
             List<Long> ids = list.stream().map(Long::parseLong).collect(Collectors.toList());
-            List<Article> articles = articleMapper.selectBatchIds(ids);
-            return urlDecoder(articles);
+            return videoMapper.selectBatchIds(ids);
         }
     }
 
@@ -111,38 +104,43 @@ public class RecommendService {
         }).collect(Collectors.toList());
     }
 
-    public void reportHistory(List<ClickReportVO> list) {
+    public void reportClick(List<ClickReportVO> list) {
         //1.点击行为上报kafka，kafka消费数据动态更新推荐列表
-        kafkaTemplate.send("xupt-video-recommend", JSONObject.toJSONString(list));
+        String json = JSONObject.toJSONString(list);
+        kafkaTemplate.send("xupt-video-recommend", json);
     }
 
-    public void reportPreference(PreferenceVO vo) {
+    public void reportPreference(List<PreferenceVO> vos) {
         //1.用户偏好数据入库
-        PreferenceEntity entity = new PreferenceEntity();
-        entity.userId = vo.userId;
-        entity.itemId = vo.itemId;
-        int score = 0;
-        if (vo.status == 2) {
-            score = 5;
-        } else {
-            score = vo.status == 0 ? 8 : 0;
+        LinkedList<PreferenceEntity> list = new LinkedList<>();
+        for (PreferenceVO vo : vos) {
+            PreferenceEntity entity = new PreferenceEntity();
+            entity.userId = vo.userId;
+            entity.itemId = vo.itemId;
+            int score = 0;
+            if (vo.status == 2) {
+                score = 5;
+            } else {
+                score = vo.status == 0 ? 8 : 0;
+            }
+            entity.score = score;
+            entity.created = new Date();
+            list.add(entity);
         }
-        entity.score = score;
-        entity.created = new Date();
-        Integer count = preferenceMapper.selectCount(
-                new QueryWrapper<PreferenceEntity>().lambda().select()
-                        .eq(PreferenceEntity::getUserId, vo.userId).eq(PreferenceEntity::getItemId,vo.itemId));
-        if (count < 1) {
-            preferenceMapper.insert(entity);
-        } else {
-            preferenceMapper.updateById(entity);
-        }
+        preferenceService.saveBatch(list);
         //2.用户偏好数据追加到csv文件
+        appendCsv(list);
+        //计算相似度
+        recommend();
+    }
+
+    public void appendCsv(List<PreferenceEntity> entityList) {
+        //用户偏好数据追加到csv文件
         FileOutputStream output = null;
         OutputStreamWriter writer = null;
         try {
-//            String filePath = "D:\\HDFSTest\\item.csv";
-            File file = new File(Constant.FILE_PATH);
+            String filePath = "D:\\HDFSTest\\item.csv";
+            File file = new File(filePath);
             if (!file.exists()) {
                 file.createNewFile();
                 output = new FileOutputStream(file);
@@ -150,9 +148,10 @@ public class RecommendService {
                 output = new FileOutputStream(file,true);
             }
             writer = new OutputStreamWriter(output);
-            String str = vo.userId.substring(1) + "," + vo.itemId + "," + score + "\r\n";
-            writer.write(str);
-            recommend();
+            for (PreferenceEntity entity : entityList) {
+                String str = entity.userId.substring(1) + "," + entity.itemId + "," + entity.score + "\r\n";
+                writer.write(str);
+            }
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
@@ -167,31 +166,5 @@ public class RecommendService {
                 e.printStackTrace();
             }
         }
-    }
-
-    public String registerUser() {
-        long id = SnowFlake.nextId();
-        String userId = "u" + id;
-        User user = new User();
-        user.userName = "admin";
-        user.userPassword = "123456";
-        user.userId = userId;
-        userMapper.insert(user);
-        return userId;
-    }
-
-    public String reportSource(SourceVO vo) {
-        Article article = new Article();
-        long id = SnowFlake.nextId();
-        try {
-            article.setId(String.valueOf(id));
-            article.setUrl(URLEncoder.encode(vo.getUrl(),"UTF-8"));
-            article.setTitle(vo.getTitle());
-            article.setCreated(new Date());
-            articleMapper.insert(article);
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-        return String.valueOf(id);
     }
 }

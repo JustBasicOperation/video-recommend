@@ -38,6 +38,7 @@ public class KafkaConsumer {
             String IIkey = "II:" + itemId;
             if (!jedisUtil.exists(IIkey)) {
             log.error("IIkey does not exists!");
+            return;
             }
             byte[] bytes = jedisUtil.get(IIkey.getBytes());
             String jsonString = new String(bytes);

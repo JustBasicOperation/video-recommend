@@ -30,11 +30,7 @@ public class RecommendServiceTest {
 
     @Test
     public void test01(){
-        try {
-            recommendService.recommend();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        recommendService.recommend();
     }
 
     @Test

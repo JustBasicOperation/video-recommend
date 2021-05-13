@@ -1,7 +1,7 @@
 package com.xupt.controller;
 
+import com.xupt.dto.RecordDTO;
 import com.xupt.dto.ResponseDTO;
-import com.xupt.entity.Record;
 import com.xupt.service.UserService;
 import com.xupt.vo.RecordVO;
 import com.xupt.vo.UserVO;
@@ -49,9 +49,9 @@ public class UserController {
      * @return return
      */
     @GetMapping("/record")
-    public ResponseDTO<List<Record>> getRecords(RecordVO vo){
-        List<Record> records = userService.getRecords(vo);
-        ResponseDTO<List<Record>> res = ResponseDTO.of();
-        return res.success(records);
+    public ResponseDTO<List<RecordDTO>> getRecords(RecordVO vo){
+        List<RecordDTO> recordDTOS = userService.getRecords(vo);
+        ResponseDTO<List<RecordDTO>> res = ResponseDTO.of();
+        return res.success(recordDTOS);
     }
 }

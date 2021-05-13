@@ -2,8 +2,10 @@ package com.xupt.util;
 
 import lombok.Data;
 
+import java.io.Serializable;
+
 @Data
-public class VideoSimilarity implements Comparable<VideoSimilarity> {
+public class VideoSimilarity implements Comparable<VideoSimilarity>, Serializable {
     private long videoId; //videoID
     private Double similarity; //similarity
 

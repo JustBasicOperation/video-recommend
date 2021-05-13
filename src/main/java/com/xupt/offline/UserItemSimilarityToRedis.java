@@ -38,7 +38,7 @@ public class UserItemSimilarityToRedis {
         FastIDSet idSet = dataModel.getItemIDsFromUser(userID);
         String key = "UI:" + userID;//这个数据暂时用不上
         String videos = JSON.toJSONString(idSet.toArray());
-        jedisUtil.set(key.getBytes(), videos.getBytes());
+//        jedisUtil.set(key.getBytes(), videos.getBytes());
         System.out.println("Stored User:" + key);
       }
     } catch(TasteException te) {

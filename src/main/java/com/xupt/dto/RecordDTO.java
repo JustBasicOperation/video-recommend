@@ -1,11 +1,11 @@
-package com.xupt.entity;
+package com.xupt.dto;
 
 import lombok.Data;
 
 import java.util.Date;
 
 @Data
-public class Record {
+public class RecordDTO {
     public String userId;
     public String videoId;
     public Date created;
