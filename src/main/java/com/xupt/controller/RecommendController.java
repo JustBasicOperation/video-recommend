@@ -2,9 +2,9 @@ package com.xupt.controller;
 
 import com.xupt.entity.Video;
 import com.xupt.vo.ClickReportVO;
-import com.xupt.dto.ResponseDTO;
 import com.xupt.service.RecommendService;
 import com.xupt.vo.PreferenceVO;
+import com.xupt.vo.VideoVO;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -23,50 +23,50 @@ public class RecommendController {
      * @return return
      */
     @GetMapping("/list")
-    public List<Video> getRecommendList(@RequestParam(value = "userID") String userID){
+    public List<VideoVO> getRecommendList(@RequestParam(value = "userID") String userID) {
         return recommendService.getRecommendList(userID);
     }
 
     /**
-     * 用户浏览记录上报(由点击行为触发,上报kafka )
+     * 获取单条视频
+     * @param videoID 视频id
+     * @return return
+     */
+    @GetMapping("/single")
+    public Video getVideo(@RequestParam(value = "videoId") String videoID) {
+        return recommendService.getVideo(videoID);
+    }
+
+    /**
+     * 用户浏览记录上报(由点击行为触发,上报kafka)
+     * 数据入库保存
+     * kafka消费者生成推荐列表，结果保存至redis
      * @return return
      */
     @PostMapping("/history")
-    public Boolean reportClick(@RequestBody List<ClickReportVO> list){
+    public Boolean reportClick(@RequestBody List<ClickReportVO> list) {
         recommendService.reportClick(list);
         return true;
     }
 
     /**
      * 用户喜好数据上报
+     * 1.数据入库
+     * 2.追加到csv文件
+     * 3.计算相似度，结果更新至redis
      * @return return
      */
     @PostMapping("/prefer")
-    public Boolean reportPreference(@RequestBody List<PreferenceVO> vos){
+    public Boolean reportPreference(@RequestBody List<PreferenceVO> vos) {
         recommendService.reportPreference(vos);
         return true;
     }
 
-//    /**
-//     * 注册用户
-//     * @return userId
-//     */
-//    @PostMapping("/user")
-//    public String registerUser(){
-//        String userId = recommendService.registerUser();
-//        ResponseDTO<String> dto = ResponseDTO.of();
-//        return userId;
-//    }
-
-//    /**
-//     * 推送内容入库
-//     * @param vo 入参
-//     * @return return
-//     */
-//    @PostMapping("/source")
-//    public ResponseDTO<String> reportSource(@RequestBody SourceVO vo){
-//        String id = recommendService.reportSource(vo);
-//        ResponseDTO<String> dto = ResponseDTO.of();
-//        return dto.success(id);
-//    }
+    /**
+     * 获取热点榜单
+     */
+    @GetMapping("/hotspot")
+    public List<VideoVO> getHotspotList() {
+        return recommendService.getHotspot();
+    }
 }

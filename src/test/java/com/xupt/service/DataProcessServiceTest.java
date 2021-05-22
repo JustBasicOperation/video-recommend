@@ -16,7 +16,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import javax.annotation.Resource;
-import java.io.IOException;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
@@ -102,9 +101,9 @@ public class DataProcessServiceTest {
     public void reportClickData() {
         //模拟第一个用户的点击行为
         User user = userMapper.selectOne(new QueryWrapper<User>()
-                .lambda().eq(User::getUserId,"u8079671854606372864"));
+                .lambda().eq(User::getUserId,"u8079671953331900416"));
         List<Video> videos = videoMapper.selectList(new QueryWrapper<Video>()
-                .lambda().orderByDesc(Video::getVideoId).last("limit 60,90"));
+                .lambda().orderByDesc(Video::getVideoId).last("limit 460,470"));
         LinkedList<ClickReportVO> reportVOS = new LinkedList<>();
         //模拟每10条上报一次
         for (int i = 0; i < videos.size(); i++) {
@@ -112,14 +111,14 @@ public class DataProcessServiceTest {
             reportVO.itemId = videos.get(i).getVideoId();
             reportVO.userId = user.userId;
             reportVOS.add(reportVO);
-            if(i % 10 == 0) {
+            if((i+1) % 10 == 0) {
                 recommendService.reportClick(reportVOS);
                 reportVOS.clear();
             }
         }
         try {
             //沉睡3秒，等待上报完成
-            Thread.sleep(3 * 1000);
+            Thread.sleep(6 * 1000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -140,7 +139,7 @@ public class DataProcessServiceTest {
         for (PreferenceEntity entity : list) {
             LinkedList<PreferenceEntity> list1 = new LinkedList<>();
             list1.add(entity);
-            recommendService.appendCsv(list1);
+            recommendService.appendCsv("D:\\HDFSTest\\item.csv",list1);
         }
         System.out.println("测试用户偏好数据上报性能（100000条）:" + (System.currentTimeMillis() - start) + "ms");
     }

@@ -1,7 +1,6 @@
 package com.xupt.controller;
 
 import com.xupt.dto.RecordDTO;
-import com.xupt.dto.ResponseDTO;
 import com.xupt.service.UserService;
 import com.xupt.vo.RecordVO;
 import com.xupt.vo.UserVO;
@@ -23,10 +22,8 @@ public class UserController {
      * @return return
      */
     @PostMapping("/register")
-    public ResponseDTO<String> registerUser(UserVO vo){
-        String id = userService.registerUser(vo);
-        ResponseDTO<String> responseDTO = ResponseDTO.of();
-        return responseDTO.success(id);
+    public String registerUser(UserVO vo) {
+        return userService.registerUser(vo);
     }
 
     /**
@@ -35,23 +32,30 @@ public class UserController {
      * @param password password
      * @return return
      */
-    @PostMapping("/login")
-    public ResponseDTO<String> login(@RequestParam("userName") String userName,
-                             @RequestParam("password") String password){
+    @GetMapping("/login")
+    public String login(@RequestParam("userName") String userName,
+                             @RequestParam("password") String password) {
         String login = userService.login(userName, password);
-        ResponseDTO<String> res = ResponseDTO.of();
-        return res.success(login);
+        return login;
     }
 
     /**
-     * 获取喜欢列表
+     * 获取用户点赞列表
      * @param vo vo
      * @return return
      */
-    @GetMapping("/record")
-    public ResponseDTO<List<RecordDTO>> getRecords(RecordVO vo){
-        List<RecordDTO> recordDTOS = userService.getRecords(vo);
-        ResponseDTO<List<RecordDTO>> res = ResponseDTO.of();
-        return res.success(recordDTOS);
+    @GetMapping("/praise")
+    public List<RecordDTO> getRecords(RecordVO vo) {
+        return userService.getRecords(vo);
+    }
+
+    /**
+     * 获取用户播放记录
+     * @param vo vo
+     * @return return
+     */
+    @GetMapping("/history")
+    public List<RecordDTO> getHistoryRecords(RecordVO vo) {
+        return userService.getHistoryRecords(vo);
     }
 }

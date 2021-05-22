@@ -2,18 +2,21 @@ package com.xupt.service;
 
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.xupt.entity.Article;
+import com.xupt.constant.Constant;
+import com.xupt.entity.HistoryEntity;
 import com.xupt.entity.PreferenceEntity;
 import com.xupt.entity.Video;
-import com.xupt.mapper.UserMapper;
 import com.xupt.mapper.VideoMapper;
 import com.xupt.offline.HDFSDataModel;
 import com.xupt.offline.ItemSimilarityToRedis;
 import com.xupt.offline.UserItemSimilarityToRedis;
+import com.xupt.service.impl.HistoryServiceImpl;
 import com.xupt.service.impl.PreferenceServiceImpl;
 import com.xupt.util.JedisUtil;
 import com.xupt.vo.ClickReportVO;
 import com.xupt.vo.PreferenceVO;
+import com.xupt.vo.VideoVO;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.mahout.cf.taste.common.TasteException;
 import org.apache.mahout.cf.taste.impl.recommender.GenericItemBasedRecommender;
 import org.apache.mahout.cf.taste.impl.similarity.PearsonCorrelationSimilarity;
@@ -23,10 +26,10 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.io.*;
-import java.net.URLDecoder;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class RecommendService {
 
@@ -43,7 +46,7 @@ public class RecommendService {
     PreferenceServiceImpl preferenceService;
 
     @Resource
-    UserMapper userMapper;
+    HistoryServiceImpl historyService;
 
     @Resource
     KafkaTemplate kafkaTemplate;
@@ -51,8 +54,8 @@ public class RecommendService {
     @Resource
     JedisUtil jedisUtil;
 
-    public void recommend() {
-        String filePath = "D:\\HDFSTest\\item.csv";
+    public void recommend(String filePath) {
+//        String filePath = "D:\\HDFSTest\\item.csv";
         File file = new File(filePath);
         HDFSDataModel dataModel = null;
         try {
@@ -67,8 +70,8 @@ public class RecommendService {
                 e.printStackTrace();
             }
             MultithreadedBatchItemSimilarities threadDeal =
-                    new MultithreadedBatchItemSimilarities(recommender, 5);
-            threadDeal.computeItemSimilarities(1, 1,
+                    new MultithreadedBatchItemSimilarities(recommender, 5,30);
+            threadDeal.computeItemSimilarities(10, 1,
                     itemSimilarityToRedis);
             userItemSimilarityToRedis.waitUtilDone();
         } catch (Exception e) {
@@ -76,38 +79,52 @@ public class RecommendService {
         }
     }
 
-    public List<Video> getRecommendList(String userID) {
+    public List<VideoVO> getRecommendList(String userID) {
         //如果没有推荐列表，默认取前十条数据
-        if (!jedisUtil.exists(userID)) {
-            return videoMapper.selectList(new QueryWrapper<Video>().lambda().orderByDesc(Video::getCreated).last("limit 0,10"));
+        String key = userID + "-" + Constant.getTodayString();
+        List<Video> list = null;
+        if (!jedisUtil.exists(key)) {
+            list = videoMapper.selectList(new QueryWrapper<Video>().lambda().orderByDesc(Video::getCreated).last("limit 0,50"));
         } else {
-            //从redis中获取前十条数据
-            Set<String> set = jedisUtil.zRevRange(userID, 0L, 10L);
-            LinkedList<String> list = new LinkedList<>(set);
-            List<Long> ids = list.stream().map(Long::parseLong).collect(Collectors.toList());
-            return videoMapper.selectBatchIds(ids);
-        }
-    }
-
-    public List<Article> urlDecoder(List<Article> articles){
-        return articles.stream().map(article -> {
-            Article art = new Article();
-            try {
-                art.setUrl(URLDecoder.decode(article.getUrl(),"UTF-8"));
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
+            //从redis中获取前50条数据
+            Set<String> set = jedisUtil.zRevRange(key, 0L, 50L);
+            LinkedList<String> ids = new LinkedList<>(set);
+            if (ids.size() > 50) {
+                list =  videoMapper.selectBatchIds(ids);
+            } else {
+                //获取热点列表中的数据补足50条数据
+                String hotspotKey = Constant.getHotspotKey();
+                Long end = 50L - ids.size();
+                Set<String> hotspot = jedisUtil.zRevRange(hotspotKey, 0L, end);
+                ids.addAll(hotspot);
+                list = videoMapper.selectBatchIds(ids);
             }
-            art.setId(article.getId());
-            art.setTitle(article.getTitle());
-            art.setCreated(article.getCreated());
-            return art;
-        }).collect(Collectors.toList());
+        }
+        LinkedList<VideoVO> res = new LinkedList<>();
+        for (Video video : list) {
+            VideoVO videoVO = new VideoVO();
+            videoVO.setVideoId(video.getVideoId());
+            videoVO.setCover_address(video.getCoverAddress());
+            videoVO.setTitle(video.getTitle());
+            res.add(videoVO);
+        }
+        return res;
     }
 
     public void reportClick(List<ClickReportVO> list) {
         //1.点击行为上报kafka，kafka消费数据动态更新推荐列表
         String json = JSONObject.toJSONString(list);
         kafkaTemplate.send("xupt-video-recommend", json);
+        //2.历史记录入库
+        LinkedList<HistoryEntity> entities = new LinkedList<>();
+        for (ClickReportVO vo : list) {
+            HistoryEntity historyEntity = new HistoryEntity();
+            historyEntity.setUserId(vo.getUserId());
+            historyEntity.setItemId(vo.getItemId());
+            historyEntity.setCreated(new Date());
+            entities.add(historyEntity);
+        }
+        historyService.saveBatch(entities);
     }
 
     public void reportPreference(List<PreferenceVO> vos) {
@@ -128,21 +145,22 @@ public class RecommendService {
             list.add(entity);
         }
         preferenceService.saveBatch(list);
+        String path = Constant.FILE_PREFIX + Constant.getTodayString() + ".csv";
         //2.用户偏好数据追加到csv文件
-        appendCsv(list);
-        //计算相似度
-        recommend();
+        appendCsv(path,list);
+        //3.计算相似度
+        recommend(path);
     }
 
-    public void appendCsv(List<PreferenceEntity> entityList) {
+    public void appendCsv(String filePath,List<PreferenceEntity> entityList) {
         //用户偏好数据追加到csv文件
         FileOutputStream output = null;
         OutputStreamWriter writer = null;
         try {
-            String filePath = "D:\\HDFSTest\\item.csv";
             File file = new File(filePath);
             if (!file.exists()) {
-                file.createNewFile();
+                boolean isSuccess = file.createNewFile();
+                log.info("appendCSv file not exist,create new File result:" +  isSuccess);
                 output = new FileOutputStream(file);
             } else {
                 output = new FileOutputStream(file,true);
@@ -166,5 +184,27 @@ public class RecommendService {
                 e.printStackTrace();
             }
         }
+    }
+
+    public Video getVideo(String videoID) {
+        //数据查询数据
+        Video video = videoMapper.selectById(videoID);
+        //上报热点列表
+        String key = Constant.getHotspotKey();
+        jedisUtil.zIncrementBy(key,1,videoID);
+        return video;
+    }
+
+    public List<VideoVO> getHotspot() {
+        Set<String> strings = jedisUtil.zRevRange(Constant.getHotspotKey(), 0L, 50L);
+        List<Video> videos = videoMapper.selectBatchIds(strings);
+        List<VideoVO> res = videos.stream().map(video -> {
+            VideoVO videoVO = new VideoVO();
+            videoVO.setVideoId(video.getVideoId());
+            videoVO.setCover_address(video.getCoverAddress());
+            videoVO.setTitle(video.getTitle());
+            return videoVO;
+        }).collect(Collectors.toList());
+        return res;
     }
 }

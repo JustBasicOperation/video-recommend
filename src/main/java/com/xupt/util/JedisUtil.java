@@ -418,4 +418,15 @@ public class JedisUtil {
         return set;
     }
 
+    public void zIncrementBy(String key,double increment,String member) {
+        Jedis jedis = getJedis();
+        try {
+            jedis.zincrby(key,increment,member);
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error("lindex error e:",e);
+        } finally {
+            jedis.close();
+        }
+    }
 }

@@ -31,7 +31,7 @@ public class DataProcessService {
                 String title = reader.get("标题");
                 Video video = new Video();
                 video.setUrl(url);
-                video.setCover_address(coverAddress);
+                video.setCoverAddress(coverAddress);
                 video.setTitle(title);
                 video.setType(1);
                 video.setVideoId(String.valueOf(SnowFlake.nextId()));

@@ -8,5 +8,5 @@ import java.util.Date;
 public class RecordDTO {
     public String userId;
     public String videoId;
-    public Date created;
+    public String created;
 }
