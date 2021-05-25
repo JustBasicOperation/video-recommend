@@ -3,10 +3,10 @@ package com.xupt.dto;
 import lombok.Data;
 
 import java.util.Date;
+import java.util.List;
 
 @Data
 public class RecordDTO {
-    public String userId;
-    public String videoId;
-    public String created;
+    public long totalPage;
+    public List<Record> records;
 }

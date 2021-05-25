@@ -1,4 +1,4 @@
-package com.xupt.spark;
+package com.xupt.handler;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;

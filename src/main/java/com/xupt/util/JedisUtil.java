@@ -418,6 +418,18 @@ public class JedisUtil {
         return set;
     }
 
+    public void zRemove(String key,String[] members) {
+        Jedis jedis = getJedis();
+        try {
+            jedis.zrem(key,members);
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error("lindex error e:",e);
+        } finally {
+            jedis.close();
+        }
+    }
+
     public void zIncrementBy(String key,double increment,String member) {
         Jedis jedis = getJedis();
         try {

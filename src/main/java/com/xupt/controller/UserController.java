@@ -1,14 +1,15 @@
 package com.xupt.controller;
 
 import com.xupt.dto.RecordDTO;
+import com.xupt.dto.ResponseDTO;
 import com.xupt.service.UserService;
 import com.xupt.vo.RecordVO;
 import com.xupt.vo.UserVO;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
-import java.util.List;
 
+@CrossOrigin(origins = "*")
 @RestController()
 @RequestMapping("/user")
 public class UserController {
@@ -40,12 +41,26 @@ public class UserController {
     }
 
     /**
+     * 浏览器用户登录
+     * @param userName userName
+     * @param password password
+     * @return return
+     */
+    @GetMapping("/loginClient")
+    public ResponseDTO<String> loginClient(@RequestParam("userName") String userName,
+                                   @RequestParam("password") String password) {
+        String login = userService.login(userName, password);
+        ResponseDTO<String> dto = ResponseDTO.of();
+        return dto.success(login);
+    }
+
+    /**
      * 获取用户点赞列表
      * @param vo vo
      * @return return
      */
     @GetMapping("/praise")
-    public List<RecordDTO> getRecords(RecordVO vo) {
+    public RecordDTO getRecords(RecordVO vo) {
         return userService.getRecords(vo);
     }
 
@@ -55,7 +70,8 @@ public class UserController {
      * @return return
      */
     @GetMapping("/history")
-    public List<RecordDTO> getHistoryRecords(RecordVO vo) {
-        return userService.getHistoryRecords(vo);
+    public RecordDTO getHistoryRecords(RecordVO vo) {
+        RecordDTO recordDTO = userService.getHistoryRecords(vo);
+        return recordDTO;
     }
 }

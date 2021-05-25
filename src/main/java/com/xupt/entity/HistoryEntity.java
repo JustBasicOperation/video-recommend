@@ -9,7 +9,8 @@ import java.util.Date;
 @Data
 @TableName("video_history")
 public class HistoryEntity {
-    @TableId("user_id")
+    @TableId("id")
+    public int id;
     public String userId;
     public String itemId;
     public Date created;

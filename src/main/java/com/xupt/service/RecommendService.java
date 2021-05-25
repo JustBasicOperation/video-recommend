@@ -80,14 +80,16 @@ public class RecommendService {
     }
 
     public List<VideoVO> getRecommendList(String userID) {
-        //如果没有推荐列表，默认取前十条数据
+        //如果没有推荐列表，默认取前50条数据
         String key = userID + "-" + Constant.getTodayString();
         List<Video> list = null;
         if (!jedisUtil.exists(key)) {
-            list = videoMapper.selectList(new QueryWrapper<Video>().lambda().orderByDesc(Video::getCreated).last("limit 0,50"));
+            list = videoMapper.selectList(new QueryWrapper<Video>().lambda().orderByAsc(Video::getCreated).last("limit 0,50"));
         } else {
-            //从redis中获取前50条数据
+            //从redis中获取前50条数据并从set中删除
             Set<String> set = jedisUtil.zRevRange(key, 0L, 50L);
+            String[] strings = set.toArray(new String[set.size()]);
+            jedisUtil.zRemove(key,strings);
             LinkedList<String> ids = new LinkedList<>(set);
             if (ids.size() > 50) {
                 list =  videoMapper.selectBatchIds(ids);
@@ -128,7 +130,7 @@ public class RecommendService {
     }
 
     public void reportPreference(List<PreferenceVO> vos) {
-        //1.用户偏好数据入库
+        //1.用户偏好数据入库（需要进行去重操作）
         LinkedList<PreferenceEntity> list = new LinkedList<>();
         for (PreferenceVO vo : vos) {
             PreferenceEntity entity = new PreferenceEntity();
@@ -144,7 +146,7 @@ public class RecommendService {
             entity.created = new Date();
             list.add(entity);
         }
-        preferenceService.saveBatch(list);
+        preferenceService.saveOrUpdateBatch(list);
         String path = Constant.FILE_PREFIX + Constant.getTodayString() + ".csv";
         //2.用户偏好数据追加到csv文件
         appendCsv(path,list);
