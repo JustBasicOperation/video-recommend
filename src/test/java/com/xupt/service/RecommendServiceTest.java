@@ -38,7 +38,7 @@ public class RecommendServiceTest {
 
     @Test
     public void test01(){
-        recommendService.recommend("D:\\HDFSTest\\test.csv");
+        recommendService.recommend("C:\\Users\\Administrator\\Desktop\\rec\\2021-05-29.csv");
     }
 
     @Test

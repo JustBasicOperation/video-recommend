@@ -35,11 +35,12 @@ public class ItemSimilarityToRedis implements SimilarItemsWriter {
         }
         String key = "II:" + similarItems.getItemID();
         String videoItems = JSON.toJSONString(videos);
-//        jedisUtil.set(key.getBytes(), videoItems.getBytes());
+        jedisUtil.set(key.getBytes(), videoItems.getBytes());
 //        itemCount++;
 //        if(itemCount % 100 == 0) {
 //            System.out.println("Store " + key + " to redis, total:" + itemCount);
 //        }
+        log.info("stored IIKey:" + key);
     }
 
     @Override

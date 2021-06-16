@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.xupt.constant.Constant;
 import com.xupt.entity.HistoryEntity;
 import com.xupt.entity.PreferenceEntity;
+import com.xupt.entity.User;
 import com.xupt.entity.Video;
+import com.xupt.mapper.UserMapper;
 import com.xupt.mapper.VideoMapper;
 import com.xupt.offline.HDFSDataModel;
 import com.xupt.offline.ItemSimilarityToRedis;
@@ -17,8 +19,8 @@ import com.xupt.vo.ClickReportVO;
 import com.xupt.vo.PreferenceVO;
 import com.xupt.vo.VideoVO;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.mahout.cf.taste.common.TasteException;
 import org.apache.mahout.cf.taste.impl.recommender.GenericItemBasedRecommender;
+import org.apache.mahout.cf.taste.impl.similarity.LogLikelihoodSimilarity;
 import org.apache.mahout.cf.taste.impl.similarity.PearsonCorrelationSimilarity;
 import org.apache.mahout.cf.taste.impl.similarity.precompute.MultithreadedBatchItemSimilarities;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -54,6 +56,9 @@ public class RecommendService {
     @Resource
     JedisUtil jedisUtil;
 
+    @Resource
+    UserMapper userMapper;
+
     public void recommend(String filePath) {
 //        String filePath = "D:\\HDFSTest\\item.csv";
         File file = new File(filePath);
@@ -66,12 +71,12 @@ public class RecommendService {
             try {
                 recommender = new GenericItemBasedRecommender(dataModel,
                         new PearsonCorrelationSimilarity(dataModel));
-            } catch (TasteException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
             MultithreadedBatchItemSimilarities threadDeal =
-                    new MultithreadedBatchItemSimilarities(recommender, 5,30);
-            threadDeal.computeItemSimilarities(10, 1,
+                    new MultithreadedBatchItemSimilarities(recommender, 50,30);
+            threadDeal.computeItemSimilarities(3, 1,
                     itemSimilarityToRedis);
             userItemSimilarityToRedis.waitUtilDone();
         } catch (Exception e) {
@@ -84,7 +89,8 @@ public class RecommendService {
         String key = userID + "-" + Constant.getTodayString();
         List<Video> list = null;
         if (!jedisUtil.exists(key)) {
-            list = videoMapper.selectList(new QueryWrapper<Video>().lambda().orderByAsc(Video::getCreated).last("limit 0,50"));
+            int start = (int) (Math.random()*10000);
+            list = videoMapper.selectByLimit(start,50);
         } else {
             //从redis中获取前50条数据并从set中删除
             Set<String> set = jedisUtil.zRevRange(key, 0L, 50L);
@@ -146,8 +152,9 @@ public class RecommendService {
             entity.created = new Date();
             list.add(entity);
         }
-        preferenceService.saveOrUpdateBatch(list);
+        preferenceService.saveBatch(list);
         String path = Constant.FILE_PREFIX + Constant.getTodayString() + ".csv";
+//        String path = "D:\\HDFSTest\\item.csv";
         //2.用户偏好数据追加到csv文件
         appendCsv(path,list);
         //3.计算相似度
@@ -208,5 +215,24 @@ public class RecommendService {
             return videoVO;
         }).collect(Collectors.toList());
         return res;
+    }
+
+    public void displayDataInit() {
+        //1.获取所有用户，对带有口袋妖怪的视频进行评分，评分范围在5-8分之内
+        List<User> users = userMapper.selectList(new QueryWrapper<>());
+        List<Video> videos = videoMapper.selectList(
+                new QueryWrapper<Video>().lambda().like(Video::getTitle, "%口袋舞蹈%"));
+        LinkedList<PreferenceVO> list = new LinkedList<>();
+        for (User user : users) {
+            for (Video video : videos) {
+                PreferenceVO vo = new PreferenceVO();
+                vo.setItemId(video.getVideoId());
+                vo.setUserId(user.getUserId());
+                vo.setStatus(Math.random() < 0.5 ? 0 : 1);
+                list.add(vo);
+            }
+            this.reportPreference(list);
+            list.clear();
+        }
     }
 }

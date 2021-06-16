@@ -29,9 +29,16 @@ public class HDFSUtilsTest {
 
     @Test
     public void test02() {
-        for (int i = 0;i < 10;i++) {
+        for (int i = 0;i < 100;i++) {
             double random = Math.random();
-            System.out.println((int)(random*10));
+            System.out.println((int)(random*10000));
+        }
+    }
+
+    @Test
+    public void test03(){
+        for (int i = 0;i < 100;i++) {
+            System.out.println(Math.random() < 0.5 ? 0 : 1);
         }
     }
 

@@ -70,4 +70,14 @@ public class RecommendController {
     public List<VideoVO> getHotspotList() {
         return recommendService.getHotspot();
     }
+
+    /**
+     * 展示数据初始化
+     * @return return
+     */
+    @GetMapping("display")
+    public boolean displayDataInit() {
+        recommendService.displayDataInit();
+        return true;
+    }
 }

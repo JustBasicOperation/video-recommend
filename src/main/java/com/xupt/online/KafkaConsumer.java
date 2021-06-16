@@ -46,13 +46,14 @@ public class KafkaConsumer {
             byte[] bytes = jedisUtil.get(IIkey.getBytes());
             String jsonString = new String(bytes);
             List<VideoSimilarity> similarities = JSONObject.parseArray(jsonString, VideoSimilarity.class);
-            log.info("the size of similarities = {}",similarityList.size());
-            if (similarities.size() > 5) {
-                List<VideoSimilarity> subList = similarities.subList(0, 10);
-                similarityList.addAll(subList);
-            } else {
-                similarityList.addAll(similarities);
-            }
+            log.info("the size of similarities = {}",similarities.size());
+            similarityList.addAll(similarities);
+//            if (similarities.size() > 5) {
+//                List<VideoSimilarity> subList = similarities.subList(0, 10);
+//                similarityList.addAll(subList);
+//            } else {
+//                similarityList.addAll(similarities);
+//            }
         }
         //3.第二步得到的列表再次去重
         JavaRDD<VideoSimilarity> javaRDD = context.parallelize(similarityList);
